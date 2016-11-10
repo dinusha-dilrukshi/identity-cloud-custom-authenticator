@@ -63,16 +63,26 @@ public class BasicCustomAuthenticator extends BasicAuthenticator {
         // Check the authentication
         try {
             int tenantId = IdentityTenantUtil.getTenantIdOfUser(username);
+//            String tenantDomain = IdentityTenantUtil.getTenantDomain(tenantId);
             UserRealm userRealm = BasicCustomAuthenticatorServiceComponent.getRealmService().getTenantUserRealm(tenantId);
             if (userRealm != null) {
                 userStoreManager = (UserStoreManager) userRealm.getUserStoreManager();
                 UserStoreManager secondaryUserStoreManager = userStoreManager.getSecondaryUserStoreManager();
                 if (secondaryUserStoreManager != null) { //If tenant has configured a secondary user store, first authenticate user from it.
-                    isAuthenticated = secondaryUserStoreManager.authenticate(MultitenantUtils.getTenantAwareUsername(username), password);
+
+                    //Original username '@' sign has been replaced with '.' and tenant domain had been added to user name by the Cloud sso-app.
+                    //Therefore we need to remove the tenant domain part from username and reconstruct email address by replacing first '.' sign with '@'
+                    //to get the original username (email) before authenticate from secondary user store.
+                    String tenantAwareUsername = MultitenantUtils.getTenantAwareUsername(username);
+//                    String originalEmail = StringUtils.replaceOnce(tenantAwareUsername, ".", "@");
+                    isAuthenticated = secondaryUserStoreManager.authenticate(tenantAwareUsername, password);
                     if (!isAuthenticated) { //If user authentication fails from secondary user store, then authenticate from primary user store.
                         isAuthenticated = userStoreManager.authenticate(userRealm.getRealmConfiguration().getUserStoreProperty("DomainName")
                                 + "/" + MultitenantUtils.getTenantAwareUsername(username), password);
                     }
+//                    else {
+//                        username = originalEmail + "@" + tenantDomain;
+//                    }
                 } else {
                     isAuthenticated = userStoreManager.authenticate(MultitenantUtils.getTenantAwareUsername(username), password);
                 }
